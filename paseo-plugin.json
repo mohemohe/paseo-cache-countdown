@@ -1,0 +1,7 @@
+{
+  "id": "paseo-cache-countdown",
+  "description": "Prompt cache countdown in the composer.",
+  "requirements": {
+    "paseo": ">=0.10.3"
+  }
+}
