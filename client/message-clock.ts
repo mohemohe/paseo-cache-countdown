@@ -1,4 +1,5 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
+import { createActivityClock, type ActivityClock } from "./activity-clock";
 
 type Timeline = ReturnType<PluginClientContext["paseo"]["agents"]["ref"]>["timeline"];
 type TimelineUpdate = Parameters<Parameters<Timeline["subscribe"]>[0]>[0];
@@ -21,12 +22,13 @@ export function observeLastMessage(
   timeline: Timeline,
   onChange: (timestamp: number | null) => void,
   onError: (error: unknown) => void,
+  clock: ActivityClock = createActivityClock(),
 ): () => void {
   let stopped = false;
   let generation = 0;
   let subscriptionGeneration = 0;
-  let epoch: string | undefined;
-  let historyTimestamp: number | null = null;
+  let epoch = clock.getSnapshot().epoch;
+  let historyTimestamp = clock.getSnapshot().timestamp;
   let live: { timestamp: number; epoch?: string } | null = null;
   let liveRevision = 0;
   let reported: number | null | undefined;
@@ -76,6 +78,7 @@ export function observeLastMessage(
     epoch = nextEpoch;
     historyTimestamp = null;
     live = null;
+    clock.replaceEpoch(nextEpoch);
     publish();
   };
 
@@ -113,6 +116,7 @@ export function observeLastMessage(
         pageEpoch = page.epoch;
         if (epoch !== undefined && epoch !== page.epoch) resetEpoch(page.epoch);
         epoch = page.epoch;
+        clock.setEpoch(epoch);
 
         let newest: number | null = null;
         for (const entry of page.entries) {
@@ -120,7 +124,8 @@ export function observeLastMessage(
           if (timestamp !== null) newest = Math.max(newest ?? timestamp, timestamp);
         }
         if (newest !== null || !page.hasOlder) {
-          historyTimestamp = newest;
+          if (newest !== null) clock.record(newest);
+          historyTimestamp = clock.getSnapshot().timestamp;
           // Live messages can arrive while the history RPC is still pending.
           // Keep those from this epoch, even if the response predates them.
           if (live?.epoch !== undefined && live.epoch !== page.epoch) live = null;
@@ -181,6 +186,8 @@ export function observeLastMessage(
         void synchronize();
       }
       epoch = update.epoch ?? epoch;
+      clock.setEpoch(epoch);
+      clock.record(timestamp, Date.now());
       if (!live || timestamp > live.timestamp) live = { timestamp, epoch: update.epoch };
       publish(true);
     }

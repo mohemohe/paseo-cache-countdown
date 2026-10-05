@@ -1,4 +1,5 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
+import { createActivityClock } from "./activity-clock";
 import { getCountdown, type CacheProfile, type Countdown } from "./countdown";
 import { observeLastMessage } from "./message-clock";
 
@@ -6,6 +7,7 @@ type Timeline = ReturnType<PluginClientContext["paseo"]["agents"]["ref"]>["timel
 
 export interface CountdownSnapshot extends Countdown {
   lastMessageAt: number | null;
+  clockOffsetMs: number;
   status: "loading" | "ready" | "error";
 }
 
@@ -15,10 +17,11 @@ export function createCountdownStore(
   timeline: Timeline,
   onChange: (snapshot: CountdownSnapshot) => void,
 ) {
+  const clock = createActivityClock();
   let lastMessageAt: number | null = null;
   let status: CountdownSnapshot["status"] = "loading";
   let snapshot: CountdownSnapshot = {
-    ...getCountdown(profile, lastMessageAt, Date.now()), lastMessageAt, status,
+    ...getCountdown(profile, lastMessageAt, Date.now()), lastMessageAt, clockOffsetMs: 0, status,
   };
   let stopObserving: (() => void) | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -27,11 +30,12 @@ export function createCountdownStore(
 
   function refresh() {
     if (disposed) return;
+    const clockOffsetMs = clock.getSnapshot().offsetMs;
     const next = {
-      ...getCountdown(profile, status === "error" ? null : lastMessageAt, Date.now()),
-      lastMessageAt, status,
+      ...getCountdown(profile, status === "error" ? null : lastMessageAt, Date.now() - clockOffsetMs),
+      lastMessageAt, clockOffsetMs, status,
     };
-    if (next.remainingMs === snapshot.remainingMs && next.lastMessageAt === snapshot.lastMessageAt && next.status === snapshot.status) return;
+    if (next.remainingMs === snapshot.remainingMs && next.lastMessageAt === snapshot.lastMessageAt && next.clockOffsetMs === snapshot.clockOffsetMs && next.status === snapshot.status) return;
     snapshot = next;
     onChange(snapshot);
     for (const listener of listeners) listener();
@@ -48,7 +52,7 @@ export function createCountdownStore(
       status = "error";
       console.error("[paseo-cache-countdown] Message observation failed", error);
       refresh();
-    });
+    }, clock);
     timer = setInterval(refresh, 1_000);
   }
 

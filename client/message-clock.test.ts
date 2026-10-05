@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CACHE_PROFILES, type CacheProfile } from "./countdown";
+import { createCountdownStore, type CountdownStore } from "./countdown-store";
 import { observeLastMessage } from "./message-clock";
 
 type Timeline = Parameters<typeof observeLastMessage>[0];
@@ -444,6 +446,119 @@ describe("observeLastMessage", () => {
     expect(mock.onError).toHaveBeenLastCalledWith(expect.objectContaining({ message: "subscription stopped" }));
     expect(mock.onChange).not.toHaveBeenCalled();
     stop();
+  });
+});
+
+describe("countdown across daemon and client clocks", () => {
+  let stores: CountdownStore[];
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(origin + 80_000);
+    stores = [];
+  });
+  afterEach(() => {
+    for (const store of stores) store.dispose();
+    vi.useRealTimers();
+  });
+
+  function mount(profile: CacheProfile = "claude-subagent") {
+    const mock = setup();
+    mock.refetch.mockResolvedValue(page([text("user_message", 0)]));
+    const store = createCountdownStore(profile, mock.timeline, vi.fn());
+    stores.push(store);
+    const unmount = store.subscribe(vi.fn());
+    return { ...mock, store, unmount };
+  }
+
+  it.each(["codex", "claude", "claude-subagent"] as const)("resets %s messages, chunks, and tool results when the daemon is 80 seconds behind", async (profile) => {
+    const mock = mount(profile);
+    await settle();
+    // A cold history read has no current daemon time with which to calibrate.
+    expect(mock.store.getSnapshot().remainingMs).toBe(CACHE_PROFILES[profile].durationMs - 80_000);
+    for (const entry of [text("user_message", 1), text("assistant_message", 2), text("assistant_message", 3), tool(4), tool(5, "failed")]) {
+      vi.setSystemTime(Date.parse(entry.timestamp) + 80_000);
+      mock.emitEntry({ ...entry, provider: profile === "codex" ? "codex" : "claude" });
+      expect(mock.store.getSnapshot()).toMatchObject({
+        lastMessageAt: Date.parse(entry.timestamp), clockOffsetMs: 80_000,
+        remainingMs: CACHE_PROFILES[profile].durationMs, status: "ready",
+      });
+      vi.advanceTimersByTime(1_000);
+      expect(mock.store.getSnapshot().remainingMs).toBe(CACHE_PROFILES[profile].durationMs - 1_000);
+    }
+  });
+
+  it("counts down immediately when the daemon clock is ahead", async () => {
+    vi.setSystemTime(origin - 80_000);
+    const mock = mount();
+    await settle();
+    mock.emitEntry(text("assistant_message", 1));
+    expect(mock.store.getSnapshot()).toMatchObject({ time: "05:00", clockOffsetMs: -81_000 });
+    vi.advanceTimersByTime(10_000);
+    expect(mock.store.getSnapshot().time).toBe("04:50");
+  });
+
+  it("does not recalibrate for duplicate or delayed activity, running output, or metadata", async () => {
+    const mock = mount();
+    await settle();
+    mock.emitEntry(tool(1));
+    vi.advanceTimersByTime(60_000);
+    for (const entry of [tool(1), tool(0, "failed"), text("assistant_message", 0), tool(5, "running"), tool(6, "canceled"), text("reasoning", 7)]) mock.emitEntry(entry);
+    expect(mock.store.getSnapshot()).toMatchObject({ time: "04:00", clockOffsetMs: 79_000, lastMessageAt: origin + 1_000 });
+  });
+
+  it("preserves the live clock anchor across a pending history response and reconnect", async () => {
+    const mock = mount();
+    const pending = deferred<Page>();
+    mock.refetch.mockReturnValueOnce(pending.promise);
+    await settle();
+    mock.emitEntry(text("assistant_message", 1));
+    vi.advanceTimersByTime(20_000);
+    pending.resolve(page([text("user_message", 0)]));
+    await settle();
+    expect(mock.store.getSnapshot().time).toBe("04:40");
+    mock.refetch.mockResolvedValue(page([tool(11)]));
+    mock.emit({ agentId: "agent", subscriptionId: "new", event: { type: "subscription_restored" } });
+    await settle();
+    expect(mock.store.getSnapshot()).toMatchObject({ time: "04:50", clockOffsetMs: 79_000, lastMessageAt: origin + 11_000 });
+  });
+
+  it("retains calibration and history freshness across unmounts, even before the next history fetch", async () => {
+    const mock = mount();
+    await settle();
+    mock.emitEntry(tool(1));
+    mock.refetch.mockResolvedValue(page([tool(11)]));
+    mock.emit({ agentId: "agent", subscriptionId: "new", event: { type: "subscription_restored" } });
+    await settle();
+    mock.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(60_000);
+    const pending = deferred<Page>();
+    mock.refetch.mockReturnValueOnce(pending.promise);
+    const unmount = mock.store.subscribe(vi.fn());
+    mock.emitEntry(tool(11));
+    expect(mock.store.getSnapshot()).toMatchObject({ time: "04:10", clockOffsetMs: 79_000, lastMessageAt: origin + 11_000 });
+    pending.resolve(page([tool(11)]));
+    await settle();
+    expect(mock.store.getSnapshot().time).toBe("04:10");
+    unmount();
+    mock.emitEntry(tool(70));
+    expect(mock.store.getSnapshot().time).toBe("04:10");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("accepts older source times after a replacement and uses wall time after suspension", async () => {
+    const mock = mount();
+    await settle();
+    mock.emitEntry(tool(10));
+    vi.advanceTimersByTime(20_000);
+    mock.refetch.mockResolvedValue(page([text("user_message", 0)], { epoch: "epoch-2" }));
+    mock.emit({ agentId: "agent", event: { type: "replacement", epoch: "epoch-2" } });
+    await settle();
+    mock.emitEntry(text("user_message", 1), "epoch-2");
+    expect(mock.store.getSnapshot()).toMatchObject({ time: "05:00", clockOffsetMs: 99_000 });
+    vi.setSystemTime(Date.now() + 301_000);
+    mock.store.refresh();
+    expect(mock.store.getSnapshot()).toMatchObject({ time: "00:00", tone: "danger" });
   });
 });
 

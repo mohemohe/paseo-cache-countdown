@@ -47,7 +47,7 @@ it("registers supported agents and updates the same pill for countdown ticks", a
   expect(h.addComposerPill.mock.calls[0]).toEqual([expect.objectContaining({ id: "cache-countdown", agentId: "a", workspaceId: "workspace" })]);
   h.upsert({ ...codex, title: "Renamed", updatedAt: new Date().toISOString() });
   expect(h.addComposerPill).toHaveBeenCalledTimes(2);
-  mocks.createStore.mock.calls[0][2]({ time: "29:59", remainingMs: 1_799_000 });
+  mocks.createStore.mock.calls[0][2]({ time: "29:59", remainingMs: 1_799_000, clockOffsetMs: 0 });
   expect(h.registrations[0].update).toHaveBeenCalledWith(expect.objectContaining({ label: "Cache 29:59" }));
   stop();
 });

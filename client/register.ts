@@ -48,7 +48,7 @@ export function registerCountdowns(client: PluginClientContext) {
         label: `Cache ${snapshot.time}`,
         title: snapshot.lastMessageAt === null || snapshot.remainingMs === null
           ? `${profile.name} prompt cache countdown`
-          : `Cache expired at ${new Date(snapshot.lastMessageAt + profile.durationMs).toLocaleString()}`,
+          : `Cache expired at ${new Date(snapshot.lastMessageAt + snapshot.clockOffsetMs + profile.durationMs).toLocaleString()}`,
       });
     });
     const { CountdownIcon, CountdownDetails } = createPillComponents(cacheProfile, store);
