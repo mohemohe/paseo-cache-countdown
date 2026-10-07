@@ -9,8 +9,10 @@
     "index.client.tsx",
     "index.server.ts",
     "client/",
+    "server/",
     "shared/",
     "!client/**/*.test.ts",
+    "!server/**/*.test.ts",
     "!shared/**/*.test.ts",
     "!client/preview.tsx",
     "!client/web.ts"
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@getpaseo/plugin": "0.10.3",
     "@tanstack/react-query": "^5.90.11",
+    "@types/node": "^22.20.5",
     "@types/react": "~19.2.0",
     "@types/react-dom": "^19.1.11",
     "react": "19.1.0",

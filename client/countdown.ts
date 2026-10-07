@@ -1,30 +1,16 @@
 import type { PluginTheme } from "@getpaseo/plugin";
+import { CACHE_PROFILES, CACHE_THRESHOLDS, formatRemaining, type CacheProfile } from "../shared/cache-profiles";
 
-export type CacheProvider = "codex" | "claude";
-export type CacheProfile = CacheProvider | "claude-subagent";
+export {
+  CACHE_PROFILES,
+  PARENT_AGENT_ID_LABEL,
+  getCacheProfile,
+  isCacheProvider,
+  type CacheProfile,
+  type CacheProvider,
+} from "../shared/cache-profiles";
+
 export type CountdownTone = "success" | "warning" | "danger" | "unknown";
-
-export const CACHE_PROFILES = {
-  codex: { name: "Codex", durationMs: 30 * 60 * 1_000 },
-  claude: { name: "Claude Code", durationMs: 60 * 60 * 1_000 },
-  "claude-subagent": { name: "Claude Code (subagent)", durationMs: 5 * 60 * 1_000 },
-} as const;
-
-/** Paseo marks delegated agents with this label. */
-export const PARENT_AGENT_ID_LABEL = "paseo.parent-agent-id";
-
-export function isCacheProvider(provider: string): provider is CacheProvider {
-  return provider === "codex" || provider === "claude";
-}
-
-export function getCacheProfile(
-  provider: CacheProvider,
-  labels: Readonly<Record<string, unknown>> | null | undefined,
-): CacheProfile {
-  const parentAgentId = labels?.[PARENT_AGENT_ID_LABEL];
-  const delegated = typeof parentAgentId === "string" && parentAgentId.trim().length > 0;
-  return provider === "claude" && delegated ? "claude-subagent" : provider;
-}
 
 export interface Countdown {
   remainingMs: number | null;
@@ -44,14 +30,11 @@ export function getCountdown(
 
   const duration = CACHE_PROFILES[profile].durationMs;
   const remainingMs = Math.max(0, Math.min(duration, lastMessageAt + duration - now));
-  const seconds = Math.ceil(remainingMs / 1_000);
-  const minutesPart = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const secondsPart = String(seconds % 60).padStart(2, "0");
   return {
     remainingMs,
     fraction: remainingMs / duration,
-    time: `${minutesPart}:${secondsPart}`,
-    tone: remainingMs <= duration / 8 ? "danger" : remainingMs <= duration / 2 ? "warning" : "success",
+    time: formatRemaining(remainingMs),
+    tone: remainingMs <= duration * CACHE_THRESHOLDS.danger ? "danger" : remainingMs <= duration * CACHE_THRESHOLDS.warning ? "warning" : "success",
   };
 }
 

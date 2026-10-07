@@ -1,4 +1,5 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
+import { AlertSettingsScreen } from "./client/alert-settings-screen";
 import { registerCountdowns } from "./client/register";
 import { createSessionScreens } from "./client/session-screens";
 import { createSessionDirectory } from "./client/sessions";
@@ -10,6 +11,12 @@ export default function contribute(client: PluginClientContext) {
     title: "Display",
     icon: "SlidersHorizontal",
     Component: CountdownSettings,
+  });
+  const removeAlertSettings = client.addSettingsScreen({
+    id: "alerts",
+    title: "Alerts",
+    icon: "BellRing",
+    Component: AlertSettingsScreen,
   });
   const directory = createSessionDirectory();
   const stopCountdowns = registerCountdowns(client, directory);
@@ -34,6 +41,7 @@ export default function contribute(client: PluginClientContext) {
     void removePanel();
     void removeSidebarItem();
     void removeSurface();
+    void removeAlertSettings();
     void removeSettings();
   };
 }

@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Paseo Cache Countdown is a Paseo plugin that shows an estimated prompt-cache countdown and circular progress indicator above the composer, and lists session countdowns in a sidebar screen and a workspace panel. It supports Codex (`codex`, 30 minutes) and Claude Code (`claude`, 1 hour for the main conversation, 5 minutes for delegated subagents labeled `paseo.parent-agent-id`). The manifest requires Paseo >= 0.10.3. The countdown runs on the client; the server entry only registers the host-scoped settings document.
+Paseo Cache Countdown is a Paseo plugin that shows an estimated prompt-cache countdown and circular progress indicator above the composer, and lists session countdowns in a sidebar screen and a workspace panel. It supports Codex (`codex`, 30 minutes) and Claude Code (`claude`, 1 hour for the main conversation, 5 minutes for delegated subagents labeled `paseo.parent-agent-id`). The manifest requires Paseo >= 0.10.3. The countdown runs on the client; the server entry registers the host-scoped settings documents and runs user-configured alert commands on the daemon machine when an idle agent's estimate turns yellow or red.
 
 The project uses strict TypeScript, React, React Native, npm, and Vitest. Paseo supplies React, React Native, and the SDK at runtime; the local packages are development dependencies.
 
@@ -20,20 +20,25 @@ The project uses strict TypeScript, React, React Native, npm, and Vitest. Paseo 
 | --- | --- |
 | `paseo-plugin.json` | Plugin ID and minimum Paseo version |
 | `index.client.tsx` | Client contribution entry point; registers the settings screen, sidebar surface, and workspace panel, and returns the plugin cleanup function |
-| `index.server.ts` | Server entry; registers settings persistence |
+| `index.server.ts` | Server entry; registers settings persistence and the turn and archive hooks that drive alerts |
 | `shared/preferences.ts` | Host-scoped settings document (`showCachePrefix`, default `true`) |
+| `shared/alerts.ts` | Host-scoped alert settings (per profile and level: `enabled`, default `false`, and `commands`) and the documented alert environment variables |
+| `shared/cache-profiles.ts` | Provider durations, color thresholds, and `mm:ss` formatting shared by the client and server |
+| `server/alerts.ts` | Alert scheduling from turn ends, cancellation, and command environment |
+| `server/run-command.ts` | Shell command execution on the daemon machine and cleanup of running commands |
 | `client/register.ts` | Per-agent composer-pill registration on the installation's host |
 | `client/session-observer.ts` | Agent-directory observation for one host's API; publishes sessions and attaches pills |
 | `client/sessions.ts` | Session directory shared with the lists, and host and workspace grouping |
 | `client/session-list.tsx` | Plain React Native session rows and the host, search, and sort controls, also used by the preview |
 | `client/session-screens.tsx` | Sidebar surface and workspace panel wrapping the list in the SDK `ScrollView` |
 | `client/message-clock.ts` | Timeline history, live activity timestamps, retries, and reconnection |
-| `client/countdown.ts` | Provider durations, remaining time, display formatting, color thresholds, and theme colors |
+| `client/countdown.ts` | Remaining time, display tone, and theme colors; re-exports the shared profiles |
 | `client/countdown-store.ts` | External store; observes activity and ticks while components are subscribed |
 | `client/pill.tsx` | React Native icon, popover, settings relay to pill labels, and app-resume refresh |
-| `client/settings-screen.tsx` | Settings screen under Settings → Plugins |
+| `client/settings-screen.tsx` | Display settings screen under Settings → Plugins |
+| `client/alert-settings-screen.tsx` | Alert settings screen with per-level switches, command lists, and the environment variable reference |
 | `client/circle-progress.tsx` | Portable circular progress rendered with React Native views |
-| `client/*.test.ts`, `shared/*.test.ts` | Colocated Vitest tests |
+| `client/*.test.ts`, `server/*.test.ts`, `shared/*.test.ts` | Colocated Vitest tests |
 | `client/preview.tsx`, `client/web.ts`, `preview/`, `scripts/preview.mjs` | Standalone browser preview |
 | `README.md`, `README.ja.md` | English and Japanese user documentation |
 
@@ -64,6 +69,7 @@ rtk npm run preview
 - Keep timeline observers and the one-second timer active only while the icon, popover, or a session-list row is subscribed. Session lists share the pill's store instead of observing a timeline again. Release subscriptions, timers, stores, and pill registrations during cleanup.
 - The sidebar screen filters by host (all or one online host; one host stops observing the others) and by a case-insensitive query on the title, project, or workspace name. Its time-remaining sort puts running caches with the least time first, then expired, then unknown, and re-sorts as countdowns change. Filter state is local to the mounted screen.
 - Session lists show the same sessions as the pills, newest first. The sidebar screen adds other online hosts through `useHosts()` and `getPaseoClient()` only while it is mounted, and groups by host and workspace; the panel filters the installation's host to its workspace. The `active` directory scope omits archived workspaces and projects, matching Paseo's sidebar. The plugin API cannot decorate Paseo's built-in sidebar session rows.
+- Alerts run on the daemon, not the client: `agent.turn_ended` schedules yellow (half the duration remaining) and red (one-eighth remaining) for supported agents with a workspace, using the same `claude-subagent` split as the pills (delegated Claude Code agents via `parentAgentId`). `agent.turn_started` and `agent.archived` cancel the schedule; a later turn end replaces it. Read settings when an alert fires, run only enabled levels, skip blank commands, and drop an alert whose schedule was replaced while settings were read. Commands run through the system shell with `ALERT_ENVIRONMENT` variables; keep `ALERT_ENVIRONMENT`, the settings screen, and both READMEs in sync. Cleanup clears timers and stops running commands.
 - Show `Cache ` before the pill time by default; the `showCachePrefix` setting hides it for every registered pill without re-registering them.
 - The countdown estimates retention from Paseo activity. It does not measure the provider's actual cache state or API submission time.
 
