@@ -1,21 +1,24 @@
-import type { PluginTheme } from "@getpaseo/plugin";
-import type { PluginButtonContentProps, PluginButtonIconProps } from "@getpaseo/plugin/client";
+import { useSettings, type PluginButtonContentProps, type PluginButtonIconProps } from "@getpaseo/plugin/client";
 import { useEffect, useSyncExternalStore } from "react";
 import { AppState, Text, View } from "react-native";
-import { CACHE_PROFILES, type CacheProfile, type CountdownTone } from "./countdown";
+import { preferences } from "../shared/preferences";
+import { CACHE_PROFILES, countdownColor, type CacheProfile } from "./countdown";
 import type { CountdownStore } from "./countdown-store";
 import { CircleProgress } from "./circle-progress";
 
-export function countdownColor(theme: PluginTheme, tone: CountdownTone): string {
-  if (tone === "success") return theme.colors.statusSuccess;
-  if (tone === "warning") return theme.colors.statusWarning;
-  if (tone === "danger") return theme.colors.statusDanger;
-  return theme.colors.foregroundMuted;
-}
-
-export function createPillComponents(cacheProfile: CacheProfile, store: CountdownStore) {
+export function createPillComponents(
+  cacheProfile: CacheProfile,
+  store: CountdownStore,
+  onShowCachePrefixChange: (show: boolean) => void,
+) {
   function CountdownIcon({ size, theme }: PluginButtonIconProps) {
     const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
+    // The pill label is not a component, so relay the setting to its registration.
+    const settings = useSettings(preferences);
+    const showCachePrefix = settings.status === "ready" ? settings.values.showCachePrefix : undefined;
+    useEffect(() => {
+      if (showCachePrefix !== undefined) onShowCachePrefixChange(showCachePrefix);
+    }, [showCachePrefix]);
     useEffect(() => {
       const subscription = AppState.addEventListener("change", (state) => {
         if (state === "active") store.refresh();

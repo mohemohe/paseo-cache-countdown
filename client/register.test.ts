@@ -33,7 +33,7 @@ const codex = { id: "a", workspaceId: "workspace", provider: "codex" };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.createStore.mockImplementation(() => ({ dispose: vi.fn() }));
+  mocks.createStore.mockImplementation(() => ({ dispose: vi.fn(), getSnapshot: () => ({ time: "--:--" }) }));
   mocks.components.mockReturnValue({ CountdownIcon: () => null, CountdownDetails: () => null });
 });
 
@@ -49,6 +49,27 @@ it("registers supported agents and updates the same pill for countdown ticks", a
   expect(h.addComposerPill).toHaveBeenCalledTimes(2);
   mocks.createStore.mock.calls[0][2]({ time: "29:59", remainingMs: 1_799_000, clockOffsetMs: 0 });
   expect(h.registrations[0].update).toHaveBeenCalledWith(expect.objectContaining({ label: "Cache 29:59" }));
+  stop();
+});
+
+it("hides the Cache prefix in every pill label when the setting is turned off", async () => {
+  const h = harness();
+  const stop = registerCountdowns(h.client);
+  await Promise.resolve();
+  h.snapshot([codex, { ...codex, id: "b", provider: "claude" }]);
+  expect(h.addComposerPill.mock.calls[0]).toEqual([expect.objectContaining({ button: expect.objectContaining({ label: "Cache --:--" }) })]);
+  const setShowCachePrefix = mocks.components.mock.calls[0][2] as (show: boolean) => void;
+  setShowCachePrefix(false);
+  expect(h.registrations[0].update).toHaveBeenCalledWith({ label: "--:--" });
+  expect(h.registrations[1].update).toHaveBeenCalledWith({ label: "--:--" });
+  mocks.createStore.mock.calls[0][2]({ time: "29:59", remainingMs: 1_799_000, clockOffsetMs: 0 });
+  expect(h.registrations[0].update).toHaveBeenLastCalledWith(expect.objectContaining({ label: "29:59" }));
+  h.upsert({ ...codex, id: "c" });
+  expect(h.addComposerPill.mock.calls[2]).toEqual([expect.objectContaining({ button: expect.objectContaining({ label: "--:--" }) })]);
+  setShowCachePrefix(false);
+  expect(h.registrations[0].update).toHaveBeenCalledTimes(2);
+  setShowCachePrefix(true);
+  expect(h.registrations[0].update).toHaveBeenLastCalledWith({ label: "Cache --:--" });
   stop();
 });
 

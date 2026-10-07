@@ -1,3 +1,5 @@
+import type { PluginTheme } from "@getpaseo/plugin";
+
 export type CacheProvider = "codex" | "claude";
 export type CacheProfile = CacheProvider | "claude-subagent";
 export type CountdownTone = "success" | "warning" | "danger" | "unknown";
@@ -51,4 +53,11 @@ export function getCountdown(
     time: `${minutesPart}:${secondsPart}`,
     tone: remainingMs <= duration / 8 ? "danger" : remainingMs <= duration / 2 ? "warning" : "success",
   };
+}
+
+export function countdownColor(theme: PluginTheme, tone: CountdownTone): string {
+  if (tone === "success") return theme.colors.statusSuccess;
+  if (tone === "warning") return theme.colors.statusWarning;
+  if (tone === "danger") return theme.colors.statusDanger;
+  return theme.colors.foregroundMuted;
 }

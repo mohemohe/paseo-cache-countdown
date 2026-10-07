@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Paseo Cache Countdown is a client-only Paseo plugin that shows an estimated prompt-cache countdown and circular progress indicator above the composer. It supports Codex (`codex`, 30 minutes) and Claude Code (`claude`, 1 hour for the main conversation, 5 minutes for delegated subagents labeled `paseo.parent-agent-id`). The manifest requires Paseo >= 0.10.3.
+Paseo Cache Countdown is a Paseo plugin that shows an estimated prompt-cache countdown and circular progress indicator above the composer. It supports Codex (`codex`, 30 minutes) and Claude Code (`claude`, 1 hour for the main conversation, 5 minutes for delegated subagents labeled `paseo.parent-agent-id`). The manifest requires Paseo >= 0.10.3. The countdown runs on the client; the server entry only registers the host-scoped settings document.
 
 The project uses strict TypeScript, React, React Native, npm, and Vitest. Paseo supplies React, React Native, and the SDK at runtime; the local packages are development dependencies.
 
@@ -19,14 +19,17 @@ The project uses strict TypeScript, React, React Native, npm, and Vitest. Paseo 
 | Path | Responsibility |
 | --- | --- |
 | `paseo-plugin.json` | Plugin ID and minimum Paseo version |
-| `index.client.tsx` | Contribution entry point; returns the plugin cleanup function |
+| `index.client.tsx` | Client contribution entry point; registers the settings screen and returns the plugin cleanup function |
+| `index.server.ts` | Server entry; registers settings persistence |
+| `shared/preferences.ts` | Host-scoped settings document (`showCachePrefix`, default `true`) |
 | `client/register.ts` | Agent-directory observation and per-agent composer-pill registration |
 | `client/message-clock.ts` | Timeline history, live activity timestamps, retries, and reconnection |
-| `client/countdown.ts` | Provider durations, remaining time, display formatting, and color thresholds |
+| `client/countdown.ts` | Provider durations, remaining time, display formatting, color thresholds, and theme colors |
 | `client/countdown-store.ts` | External store; observes activity and ticks while components are subscribed |
-| `client/pill.tsx` | React Native icon, popover, theme colors, and app-resume refresh |
+| `client/pill.tsx` | React Native icon, popover, settings relay to pill labels, and app-resume refresh |
+| `client/settings-screen.tsx` | Settings screen under Settings → Plugins |
 | `client/circle-progress.tsx` | Portable circular progress rendered with React Native views |
-| `client/*.test.ts` | Colocated Vitest tests |
+| `client/*.test.ts`, `shared/*.test.ts` | Colocated Vitest tests |
 | `client/preview.tsx`, `client/web.ts`, `preview/`, `scripts/preview.mjs` | Standalone browser preview |
 | `README.md`, `README.ja.md` | English and Japanese user documentation |
 
@@ -55,6 +58,7 @@ rtk npm run preview
 - Register pills only for supported, unarchived agents with a workspace. Reconcile snapshots, workspace/provider changes, and removals without duplicate registrations.
 - Await timeline subscription readiness before fetching initial history. Resynchronize on reconnection and replacement, preserve newer live events during history fetches, and retry failures with capped backoff.
 - Keep timeline observers and the one-second timer active only while the icon or popover is subscribed. Release subscriptions, timers, stores, and pill registrations during cleanup.
+- Show `Cache ` before the pill time by default; the `showCachePrefix` setting hides it for every registered pill without re-registering them.
 - The countdown estimates retention from Paseo activity. It does not measure the provider's actual cache state or API submission time.
 
 ## Code and verification conventions

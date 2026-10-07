@@ -21,6 +21,17 @@ export function registerCountdowns(client: PluginClientContext) {
   const lifetime = new AbortController();
   let stopped = false;
   let unsubscribe: (() => void) | undefined;
+  let showCachePrefix = true;
+
+  function label(time: string) {
+    return showCachePrefix ? `Cache ${time}` : time;
+  }
+
+  function setShowCachePrefix(show: boolean) {
+    if (stopped || show === showCachePrefix) return;
+    showCachePrefix = show;
+    for (const pill of pills.values()) pill.registration.update({ label: label(pill.store.getSnapshot().time) });
+  }
 
   function remove(agentId: string) {
     const pill = pills.get(agentId);
@@ -45,13 +56,13 @@ export function registerCountdowns(client: PluginClientContext) {
     let registration: PluginButtonRegistration | undefined;
     const store = createCountdownStore(cacheProfile, client.paseo.agents.ref(agent.id).timeline, (snapshot) => {
       registration?.update({
-        label: `Cache ${snapshot.time}`,
+        label: label(snapshot.time),
         title: snapshot.lastMessageAt === null || snapshot.remainingMs === null
           ? `${profile.name} prompt cache countdown`
           : `Cache expired at ${new Date(snapshot.lastMessageAt + snapshot.clockOffsetMs + profile.durationMs).toLocaleString()}`,
       });
     });
-    const { CountdownIcon, CountdownDetails } = createPillComponents(cacheProfile, store);
+    const { CountdownIcon, CountdownDetails } = createPillComponents(cacheProfile, store, setShowCachePrefix);
     registration = client.addComposerPill({
       id: "cache-countdown",
       workspaceId: agent.workspaceId,
@@ -59,7 +70,7 @@ export function registerCountdowns(client: PluginClientContext) {
       button: {
         title: `${profile.name} prompt cache countdown`,
         icon: CountdownIcon,
-        label: "Cache --:--",
+        label: label(store.getSnapshot().time),
         behavior: { kind: "popover", Content: CountdownDetails },
       },
     });

@@ -20,6 +20,10 @@ Claude Codeの有効時間は、[Claude Codeのプロンプトキャッシュに
 
 これは指定された30分／1時間／5分を使う目安で、プロバイダー側の実際のキャッシュ保持状態やAPIへの送信時刻を照会するものではありません。受信時刻で時計差を補正するため、ライブ活動の目安には配送遅延も含まれます。
 
+## 設定
+
+**Settings → Plugins → paseo-cache-countdown → Display** の **Show “Cache” in the pill** をオフにすると、pillには `Cache 29:59` ではなく `29:59` のように残り時間のみを表示します。デフォルトは表示です。設定はホストに保存され、そのホストに接続するすべてのクライアントで共有されます。会話を開いた直後は、設定の読み込みが終わるまで既定の表示になることがあります。
+
 ## インストール
 
 Paseo **0.10.3以上**のdaemonとクライアントが必要です。
@@ -40,7 +44,7 @@ paseo plugin ls
 paseo plugin reload paseo-cache-countdown
 ```
 
-プラグインはクライアントのみで動作します。サーバー側コード、APIキー、外部サービスは不要です。React / React Native / SDKはPaseoが提供します。
+カウントダウンはクライアントのみで動作します。サーバー側エントリは、Paseoが設定をホストに保存するための設定ドキュメントを登録するだけです。APIキーや外部サービスは不要です。React / React Native / SDKはPaseoが提供します。
 
 ## 開発・検証
 
@@ -52,18 +56,21 @@ npm run preview
 
 `http://127.0.0.1:4173/preview/` で実際の円形プログレスコンポーネントを確認できます。Codex / Claude Code（メイン会話・サブエージェント）、残り50%、1/8、期限切れ、新規メッセージを切り替えられます。このプレビューは表示確認用で、Paseoには接続しません。
 
-自動テストは期間と色の境界、リモートの時計の遅れ・進み、スリープ相当の時計の進み、ツールの完了・失敗による更新と開始・キャンセルの除外、並列ツールの完了順・遅延・重複、履歴取得範囲の拡大、履歴と新着イベントの競合、再接続、履歴置換、再マウント、会話ごとの登録・解除を検証します。実際のPaseo画面では、インストール後に対象会話を開き、メッセージ送受信とツールの完了・失敗でタイマーがリセットされることを確認してください。
+自動テストは期間と色の境界、リモートの時計の遅れ・進み、スリープ相当の時計の進み、ツールの完了・失敗による更新と開始・キャンセルの除外、並列ツールの完了順・遅延・重複、履歴取得範囲の拡大、履歴と新着イベントの競合、再接続、履歴置換、再マウント、会話ごとの登録・解除、`Cache` 表示設定とその既定値を検証します。実際のPaseo画面では、インストール後に対象会話を開き、メッセージ送受信とツールの完了・失敗でタイマーがリセットされることを確認してください。
 
 開発依存はPaseo 0.10.3のReact / React Nativeに合わせています。2026-10-04の `npm audit` では、React Nativeの開発用依存ツリーに含まれる `braces` の指摘が残っています。プラグインの実行用バンドルにこの依存は含まれません。
 
 ## 構成
 
-- `index.client.tsx`: プラグインエントリ
+- `index.client.tsx`: クライアント側のプラグインエントリと設定画面の登録
+- `index.server.ts`: ホストへの設定の保存
+- `shared/preferences.ts`: 設定ドキュメントの定義
 - `client/register.ts`: 会話ごとのpill登録・解除
 - `client/message-clock.ts`: メッセージ・ツール結果の履歴とライブ更新
 - `client/activity-clock.ts`: daemon側のイベント順序とクライアントの時計差の補正
 - `client/countdown.ts`: 期間・残り時間・色の計算
 - `client/countdown-store.ts`: 表示中だけ時刻の購読と毎秒更新
 - `client/pill.tsx`, `client/circle-progress.tsx`: React Nativeのpillアイコン・詳細表示
+- `client/settings-screen.tsx`: 設定画面
 
-公式仕様: [Plugin quickstart](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/index.md)、[Composer pills](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/reference.md#composer-pills)、[SDK events](https://github.com/getpaseo/paseo/blob/main/public-docs/sdk/events.md)。
+公式仕様: [Plugin quickstart](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/index.md)、[Composer pills](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/reference.md#composer-pills)、[Settings screens](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/reference.md#settings-screens)、[SDK events](https://github.com/getpaseo/paseo/blob/main/public-docs/sdk/events.md)。

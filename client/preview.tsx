@@ -3,9 +3,8 @@ import { createElement, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Pressable, Text, View } from "react-native";
 import type { PluginTheme } from "@getpaseo/plugin";
-import { CACHE_PROFILES, getCountdown, type CacheProfile } from "./countdown";
+import { CACHE_PROFILES, countdownColor, getCountdown, type CacheProfile } from "./countdown";
 import { CircleProgress } from "./circle-progress";
-import { countdownColor } from "./pill";
 
 const theme: PluginTheme = { colors: {
   surface0: "#101214", surface1: "#191c20", surface2: "#25292f", border: "#343a43",
