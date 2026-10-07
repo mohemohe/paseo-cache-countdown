@@ -37,10 +37,10 @@ export function createPillComponents(cacheProfile: CacheProfile, store: Countdow
           <Text style={{ color, fontSize: 28, fontVariant: ["tabular-nums"] }}>{snapshot.time}</Text>
         </View>
         <Text style={{ color: theme.colors.foregroundMuted }}>
-          {snapshot.status === "error" ? "最終更新時刻を取得できませんでした。" : snapshot.status === "loading" ? "会話履歴を読み込み中…" : snapshot.lastMessageAt === null ? "まだメッセージやツール結果がありません。" : snapshot.remainingMs === 0 ? "キャッシュの有効時間を経過しました。" : `最後のメッセージまたはツールの完了・失敗から${profile.durationMs / 60_000}分のカウントダウンです。`}
+          {snapshot.status === "error" ? "Could not determine the last update time." : snapshot.status === "loading" ? "Loading conversation history…" : snapshot.lastMessageAt === null ? "No messages or tool results yet." : snapshot.remainingMs === 0 ? "The cache duration has elapsed." : `Counting down ${profile.durationMs / 60_000} minutes from the last message or tool completion or failure.`}
         </Text>
-        {snapshot.lastMessageAt !== null ? <Text style={{ color: theme.colors.foregroundMuted }}>最終更新: {new Date(snapshot.lastMessageAt + snapshot.clockOffsetMs).toLocaleString()}</Text> : null}
-        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>残り時間はメッセージ・ツール結果の時刻に基づく目安です。</Text>
+        {snapshot.lastMessageAt !== null ? <Text style={{ color: theme.colors.foregroundMuted }}>Last updated: {new Date(snapshot.lastMessageAt + snapshot.clockOffsetMs).toLocaleString()}</Text> : null}
+        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>The remaining time is an estimate based on message and tool result timestamps.</Text>
       </View>
     );
   }

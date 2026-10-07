@@ -23,7 +23,7 @@ function Preview() {
   const buttonStyle = { padding: 12, borderRadius: 8, backgroundColor: theme.colors.surface2 };
   return <View style={{ padding: 32, gap: 24, maxWidth: 780, width: "100%", alignSelf: "center" }}>
     <Text style={{ color: theme.colors.foreground, fontSize: 22, fontWeight: "600" }}>Paseo Cache Countdown</Text>
-    <Text style={{ color: theme.colors.foregroundMuted }}>コンポーネントプレビュー · 実際のPaseoへの接続は行いません。</Text>
+    <Text style={{ color: theme.colors.foregroundMuted }}>Component preview · Does not connect to Paseo.</Text>
     <View style={{ flexDirection: "row", gap: 8 }}>
       {(["codex", "claude", "claude-subagent"] as const).map((value) => <Pressable key={value} style={buttonStyle} onPress={() => { setProvider(value); setLastMessageAt(Date.now()); setNow(Date.now()); }}><Text style={{ color: provider === value ? theme.colors.accent : theme.colors.foreground }}>{CACHE_PROFILES[value].name}</Text></Pressable>)}
     </View>
@@ -32,14 +32,14 @@ function Preview() {
         <CircleProgress size={16} fraction={countdown.fraction} color={countdownColor(theme, countdown.tone)} trackColor={theme.colors.border} />
         <Text style={{ color: theme.colors.foreground, fontSize: 12, fontVariant: ["tabular-nums"] }}>Cache {countdown.time}</Text>
       </View>
-      <Text style={{ color: theme.colors.foregroundMuted }}>メッセージを入力…</Text>
+      <Text style={{ color: theme.colors.foregroundMuted }}>Type a message…</Text>
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 16 }}>
         <Text style={{ color: theme.colors.foregroundMuted }}>{CACHE_PROFILES[provider].name}</Text>
-        <Pressable style={buttonStyle} onPress={() => { setLastMessageAt(Date.now()); setNow(Date.now()); }}><Text style={{ color: theme.colors.foreground }}>メッセージ送信を再現</Text></Pressable>
+        <Pressable style={buttonStyle} onPress={() => { setLastMessageAt(Date.now()); setNow(Date.now()); }}><Text style={{ color: theme.colors.foreground }}>Simulate sending a message</Text></Pressable>
       </View>
     </View>
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-      {[{ label: "残り50%", fraction: 0.5 }, { label: "残り1/8", fraction: 0.125 }, { label: "期限切れ", fraction: 0 }].map(({ label, fraction }) => <Pressable key={label} style={buttonStyle} onPress={() => { const time = Date.now(); setLastMessageAt(time - duration * (1 - fraction)); setNow(time); }}><Text style={{ color: theme.colors.foreground }}>{label}</Text></Pressable>)}
+      {[{ label: "50% remaining", fraction: 0.5 }, { label: "1/8 remaining", fraction: 0.125 }, { label: "Expired", fraction: 0 }].map(({ label, fraction }) => <Pressable key={label} style={buttonStyle} onPress={() => { const time = Date.now(); setLastMessageAt(time - duration * (1 - fraction)); setNow(time); }}><Text style={{ color: theme.colors.foreground }}>{label}</Text></Pressable>)}
     </View>
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 28 }}>
       {[1, 0.75, 0.5, 0.25, 0.125, 0].map((fraction) => {

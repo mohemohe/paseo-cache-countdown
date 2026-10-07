@@ -62,6 +62,7 @@ rtk npm run preview
 - Follow the existing two-space indentation, double quotes, semicolons, named exports, and `import type` usage. Keep the entry point's default export.
 - Use `PluginClientContext` and derive timeline types from the installed SDK types. Check installed declarations when upstream documentation describes a different version.
 - Use React Native primitives and Paseo theme colors for runtime UI. Keep browser-only code in the preview; preserve the ring's portability without DOM or SVG dependencies.
+- Write UI text, including the preview, in English. The plugin API does not expose Paseo's app language.
 - Add or adjust colocated tests for changed timing, event, race, retry, and cleanup behavior. Existing tests use fake timers and mocked SDK handles.
 - Run `rtk npm run check` after code changes. For UI changes, also inspect the preview and distinguish that result from verification in a real Paseo conversation.
 - Update both READMEs when user-visible behavior, requirements, or installation instructions change.
