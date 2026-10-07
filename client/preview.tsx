@@ -6,7 +6,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { CACHE_PROFILES, countdownColor, getCountdown, type CacheProfile } from "./countdown";
 import { CircleProgress } from "./circle-progress";
 import type { CountdownSnapshot, CountdownStore } from "./countdown-store";
-import { SessionList } from "./session-list";
+import { SessionBrowser, SessionList } from "./session-list";
 import type { CountdownSession } from "./sessions";
 
 const theme: PluginTheme = { colors: {
@@ -40,17 +40,22 @@ function sampleStore(profile: CacheProfile, lastMessageAt: number | null): Count
 
 const startedAt = Date.now();
 const sampleSessions: CountdownSession[] = ([
-  ["s1", "w1", "claude", "Refactor timeline observer", startedAt - 10 * 60_000, "paseo", "main"],
-  ["s2", "w1", "claude-subagent", "Search for flaky tests", startedAt - 4 * 60_000, "paseo", "main"],
-  ["s3", "w1", "codex", null, startedAt - 26 * 60_000, "paseo", "main"],
-  ["s4", "w2", "codex", "Review pull request #42", startedAt - 45 * 60_000, "paseo", "review-42"],
-  ["s5", "w2", "claude", "Waiting for history", null, "paseo", "review-42"],
-] as const).map(([id, workspaceId, profile, title, lastMessageAt, projectName, workspaceName], index) => ({
-  id, workspaceId, profile, title, projectName, workspaceName,
+  ["s1", null, "w1", "claude", "Refactor timeline observer", startedAt - 10 * 60_000, "paseo", "main"],
+  ["s2", null, "w1", "claude-subagent", "Search for flaky tests", startedAt - 4 * 60_000, "paseo", "main"],
+  ["s3", null, "w1", "codex", null, startedAt - 26 * 60_000, "paseo", "main"],
+  ["s4", null, "w2", "codex", "Review pull request #42", startedAt - 45 * 60_000, "paseo", "review-42"],
+  ["s5", null, "w2", "claude", "Waiting for history", null, "paseo", "review-42"],
+  ["s6", "remote", "w1", "codex", "Update release notes", startedAt - 2 * 60_000, "docs", "main"],
+] as const).map(([id, serverId, workspaceId, profile, title, lastMessageAt, projectName, workspaceName], index) => ({
+  id, serverId, workspaceId, profile, title, projectName, workspaceName,
   createdAt: new Date(startedAt - index * 60_000).toISOString(), store: sampleStore(profile, lastMessageAt),
 }));
 
+const sampleHosts = [{ id: "local", label: "This Mac" }, { id: "remote", label: "Build server" }];
+const sampleHostOf = (session: CountdownSession) => session.serverId ?? "local";
+
 function Preview() {
+  const [selectedHost, setSelectedHost] = useState<string | null>(null);
   const [provider, setProvider] = useState<CacheProfile>("codex");
   const [lastMessageAt, setLastMessageAt] = useState(Date.now());
   const [now, setNow] = useState(Date.now());
@@ -88,14 +93,14 @@ function Preview() {
       <View style={{ flexGrow: 1, flexBasis: 360, gap: 12 }}>
         <Text style={{ color: theme.colors.foreground, fontWeight: "600" }}>Sidebar screen</Text>
         <View style={{ backgroundColor: theme.colors.surface0, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 12, padding: 24 }}>
-          <SessionList theme={theme} sessions={sampleSessions} grouped emptyText="No Codex or Claude Code sessions." onOpen={() => {}} />
+          <SessionBrowser theme={theme} sessions={sampleSessions} hosts={sampleHosts} selectedHost={selectedHost} onSelectHost={setSelectedHost} hostOf={sampleHostOf} onOpen={() => {}} />
         </View>
       </View>
       <View style={{ width: 280, gap: 12 }}>
         <Text style={{ color: theme.colors.foreground, fontWeight: "600" }}>Workspace panel</Text>
         <View style={{ backgroundColor: theme.colors.surface0, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 12, padding: 12, gap: 16 }}>
-          <SessionList theme={theme} sessions={sampleSessions.filter(({ workspaceId }) => workspaceId === "w1")} grouped={false} emptyText="No Codex or Claude Code sessions in this workspace." onOpen={() => {}} />
-          <SessionList theme={theme} sessions={[]} grouped={false} emptyText="No Codex or Claude Code sessions in this workspace." />
+          <SessionList theme={theme} sessions={sampleSessions.filter(({ serverId, workspaceId }) => serverId === null && workspaceId === "w1")} layout="plain" emptyText="No Codex or Claude Code sessions in this workspace." onOpen={() => {}} />
+          <SessionList theme={theme} sessions={[]} layout="plain" emptyText="No Codex or Claude Code sessions in this workspace." />
         </View>
       </View>
     </View>

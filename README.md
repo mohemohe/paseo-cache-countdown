@@ -26,10 +26,17 @@ This is an estimate based on the specified 30-minute / 1-hour / 5-minute duratio
 
 The plugin can also list the countdowns of several sessions at once:
 
-- **Sidebar screen**: Select **Cache Countdown** in the sidebar to see every Codex and Claude Code session on the host, grouped by project and workspace with the newest sessions first. When the plugin is installed on several hosts, the screen follows the host selected in Paseo's host picker.
+- **Sidebar screen**: Select **Cache Countdown** in the sidebar to see the Codex and Claude Code sessions on every online host configured in the app, grouped by project and workspace with the newest sessions first. With sessions from several hosts, each heading starts with the host name. Other hosts do not need the plugin installed; their sessions are observed only while the screen is open.
+
+  Controls above the list narrow and reorder it:
+  - **Host**: Show every host (**All**) or one online host. Choosing one host stops observing the others.
+  - **Search**: Type to show only sessions whose title, project, or workspace name contains the text, ignoring case.
+  - **Sort**: **Host & project** groups sessions under host, project, and workspace headings. **Time remaining** lists running caches with the least time left first, followed by expired (`00:00`) and unknown (`--:--`) ones; each row shows its host, project, and workspace. The order follows the countdown as it changes.
+
+  The filters reset when the screen is closed.
 - **Workspace panel**: Choose **Cache Countdown** from the new-tab menu of a workspace or the Explorer to see the sessions in that workspace.
 
-Press a row to open its conversation. The Paseo 0.10.3 plugin API cannot add content to the built-in session rows in the sidebar, so these lists are shown separately. Lists use the same estimates, colors, and `Cache --:--` conditions as the pill and show only the remaining time. While a list is open, it loads and follows the history of every session it shows; observation stops when the list and the pill are closed.
+Like Paseo's sidebar, the lists omit archived sessions and sessions in archived workspaces or projects. Press a row to open its conversation. The Paseo 0.10.3 plugin API cannot add content to the built-in session rows in the sidebar, so these lists are shown separately. Lists use the same estimates, colors, and `Cache --:--` conditions as the pill and show only the remaining time. While a list is open, it loads and follows the history of every session it shows; observation stops when the list and the pill are closed.
 
 ## Settings
 
@@ -65,9 +72,9 @@ npm run check
 npm run preview
 ```
 
-You can view the actual circular progress component at `http://127.0.0.1:4173/preview/`. The preview lets you switch between Codex, the Claude Code main conversation, and a Claude Code subagent, and try scenarios with 50% or one-eighth of the time remaining, an expired timer, or a new message. It also shows the session list of the sidebar screen and the workspace panel with sample sessions. This preview is for visual inspection and does not connect to Paseo.
+You can view the actual circular progress component at `http://127.0.0.1:4173/preview/`. The preview lets you switch between Codex, the Claude Code main conversation, and a Claude Code subagent, and try scenarios with 50% or one-eighth of the time remaining, an expired timer, or a new message. It also shows the sidebar screen's session list, with working host, search, and sort controls, and the workspace panel with sample sessions. This preview is for visual inspection and does not connect to Paseo.
 
-Automated tests cover durations and color thresholds, remote clocks ahead of or behind the client, clock advances equivalent to sleep, updates on tool completion or failure and the exclusion of tool starts and cancellations, parallel tool completion order and delayed or duplicate events, expansion of the history fetch range, races between history and incoming events, reconnection, history replacement, remounting, per-conversation registration and cleanup, publishing session names to the session lists and grouping them by workspace, and the `Cache` prefix setting and its default. To verify the behavior in Paseo itself, open a supported conversation after installation and confirm that sending or receiving messages and tool completions or failures reset the timer.
+Automated tests cover durations and color thresholds, remote clocks ahead of or behind the client, clock advances equivalent to sleep, updates on tool completion or failure and the exclusion of tool starts and cancellations, parallel tool completion order and delayed or duplicate events, expansion of the history fetch range, races between history and incoming events, reconnection, history replacement, remounting, per-conversation registration and cleanup, publishing session names to the session lists, observing other hosts, grouping sessions by host and workspace, searching, sorting by time remaining, and the `Cache` prefix setting and its default. To verify the behavior in Paseo itself, open a supported conversation after installation and confirm that sending or receiving messages and tool completions or failures reset the timer.
 
 Development dependencies match the React and React Native versions used by Paseo 0.10.3. As of 2026-10-04, `npm audit` still reports an issue with `braces` in React Native's development dependency tree. This dependency is not included in the plugin's runtime bundle.
 
@@ -77,8 +84,9 @@ Development dependencies match the React and React Native versions used by Paseo
 - `index.server.ts`: Settings persistence on the host
 - `shared/preferences.ts`: Settings document definition
 - `client/register.ts`: Per-conversation pill registration and cleanup, and publication to the session lists
-- `client/sessions.ts`: Registered sessions and workspace grouping for the session lists
-- `client/session-list.tsx`, `client/session-screens.tsx`: Session list rows, the sidebar screen, and the workspace panel
+- `client/session-observer.ts`: Agent directory observation on one host
+- `client/sessions.ts`: Registered sessions and host and workspace grouping for the session lists
+- `client/session-list.tsx`, `client/session-screens.tsx`: Session list rows and filters, the sidebar screen, and the workspace panel
 - `client/message-clock.ts`: Message and tool result history and live updates
 - `client/activity-clock.ts`: Daemon timestamp ordering and client clock correction
 - `client/countdown.ts`: Duration, remaining time, and color calculations
