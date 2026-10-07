@@ -1,7 +1,8 @@
 import type { PluginButtonRegistration, PluginClientContext } from "@getpaseo/plugin/client";
-import { CACHE_PROFILES, getCacheProfile, isCacheProvider, type CacheProfile } from "./countdown";
-import { createCountdownStore, type CountdownStore } from "./countdown-store";
+import { CACHE_PROFILES, getCacheProfile, isCacheProvider } from "./countdown";
+import { createCountdownStore } from "./countdown-store";
 import { createPillComponents } from "./pill";
+import { createSessionDirectory, type CountdownSession, type SessionDirectory } from "./sessions";
 
 interface AgentTarget {
   id: string;
@@ -9,17 +10,20 @@ interface AgentTarget {
   provider: string;
   archivedAt?: string | null;
   labels?: Readonly<Record<string, unknown>> | null;
+  title?: string | null;
+  createdAt?: string;
 }
 
-export function registerCountdowns(client: PluginClientContext) {
-  const pills = new Map<string, {
-    workspaceId: string;
-    profile: CacheProfile;
-    registration: PluginButtonRegistration;
-    store: CountdownStore;
-  }>();
+interface ProjectTarget {
+  projectName?: string | null;
+  workspaceName?: string | null;
+}
+
+export function registerCountdowns(client: PluginClientContext, directory: SessionDirectory = createSessionDirectory()) {
+  const pills = new Map<string, { registration: PluginButtonRegistration; session: CountdownSession }>();
   const lifetime = new AbortController();
   let stopped = false;
+  let sessionsChanged = false;
   let unsubscribe: (() => void) | undefined;
   let showCachePrefix = true;
 
@@ -30,18 +34,35 @@ export function registerCountdowns(client: PluginClientContext) {
   function setShowCachePrefix(show: boolean) {
     if (stopped || show === showCachePrefix) return;
     showCachePrefix = show;
-    for (const pill of pills.values()) pill.registration.update({ label: label(pill.store.getSnapshot().time) });
+    for (const pill of pills.values()) pill.registration.update({ label: label(pill.session.store.getSnapshot().time) });
+  }
+
+  function publishSessions() {
+    if (!sessionsChanged) return;
+    sessionsChanged = false;
+    directory.publish([...pills.values()].map(({ session }) => session));
+  }
+
+  // Updates may omit the project, so keep the last known names.
+  function describe(agent: AgentTarget, project: ProjectTarget | null | undefined, previous?: CountdownSession) {
+    return {
+      title: agent.title ?? null,
+      projectName: project ? project.projectName ?? null : previous?.projectName ?? null,
+      workspaceName: project ? project.workspaceName ?? null : previous?.workspaceName ?? null,
+      createdAt: agent.createdAt ?? previous?.createdAt ?? "",
+    };
   }
 
   function remove(agentId: string) {
     const pill = pills.get(agentId);
     if (!pill) return;
-    pill.store.dispose();
+    pill.session.store.dispose();
     pill.registration.remove();
     pills.delete(agentId);
+    sessionsChanged = true;
   }
 
-  function register(agent: AgentTarget) {
+  function register(agent: AgentTarget, project?: ProjectTarget | null) {
     if (stopped) return;
     if (!agent.workspaceId || agent.archivedAt || !isCacheProvider(agent.provider)) {
       remove(agent.id);
@@ -49,7 +70,15 @@ export function registerCountdowns(client: PluginClientContext) {
     }
     const cacheProfile = getCacheProfile(agent.provider, agent.labels);
     const existing = pills.get(agent.id);
-    if (existing?.workspaceId === agent.workspaceId && existing.profile === cacheProfile) return;
+    if (existing?.session.workspaceId === agent.workspaceId && existing.session.profile === cacheProfile) {
+      const { session } = existing;
+      const details = describe(agent, project, session);
+      if (details.title !== session.title || details.projectName !== session.projectName || details.workspaceName !== session.workspaceName || details.createdAt !== session.createdAt) {
+        existing.session = { ...session, ...details };
+        sessionsChanged = true;
+      }
+      return;
+    }
     remove(agent.id);
 
     const profile = CACHE_PROFILES[cacheProfile];
@@ -74,7 +103,9 @@ export function registerCountdowns(client: PluginClientContext) {
         behavior: { kind: "popover", Content: CountdownDetails },
       },
     });
-    pills.set(agent.id, { workspaceId: agent.workspaceId, profile: cacheProfile, registration, store });
+    const session = { id: agent.id, workspaceId: agent.workspaceId, profile: cacheProfile, store, ...describe(agent, project) };
+    pills.set(agent.id, { registration, session });
+    sessionsChanged = true;
   }
 
   // Active-directory sync returns a full snapshot, beyond the default 200-row page.
@@ -87,12 +118,14 @@ export function registerCountdowns(client: PluginClientContext) {
       snapshot: ({ entries }) => {
         const present = new Set(entries.map(({ agent }) => agent.id));
         for (const id of pills.keys()) if (!present.has(id)) remove(id);
-        for (const { agent } of entries) register(agent);
+        for (const { agent, project } of entries) register(agent, project);
+        publishSessions();
       },
       update: (message) => {
         if (message.type !== "agent_update") return;
         if (message.payload.kind === "remove") remove(message.payload.agentId);
-        else register(message.payload.agent);
+        else register(message.payload.agent, message.payload.project);
+        publishSessions();
       },
       error: (error) => {
         if (!stopped) console.error("[paseo-cache-countdown] Agent observation failed", error);
@@ -107,5 +140,6 @@ export function registerCountdowns(client: PluginClientContext) {
     lifetime.abort();
     unsubscribe?.();
     for (const id of pills.keys()) remove(id);
+    publishSessions();
   };
 }

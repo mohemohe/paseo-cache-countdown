@@ -22,6 +22,15 @@ The plugin fetches message and tool result history when a conversation is opened
 
 This is an estimate based on the specified 30-minute / 1-hour / 5-minute durations. It does not query the provider's actual cache retention state or the time data was sent to the API. Live estimates include delivery latency because clock correction is based on receipt time.
 
+## Session Lists
+
+The plugin can also list the countdowns of several sessions at once:
+
+- **Sidebar screen**: Select **Cache Countdown** in the sidebar to see every Codex and Claude Code session on the host, grouped by project and workspace with the newest sessions first. When the plugin is installed on several hosts, the screen follows the host selected in Paseo's host picker.
+- **Workspace panel**: Choose **Cache Countdown** from the new-tab menu of a workspace or the Explorer to see the sessions in that workspace.
+
+Press a row to open its conversation. The Paseo 0.10.3 plugin API cannot add content to the built-in session rows in the sidebar, so these lists are shown separately. Lists use the same estimates, colors, and `Cache --:--` conditions as the pill and show only the remaining time. While a list is open, it loads and follows the history of every session it shows; observation stops when the list and the pill are closed.
+
 ## Settings
 
 Open **Settings → Plugins → paseo-cache-countdown → Display** and turn off **Show “Cache” in the pill** to show only the remaining time in the pill, such as `29:59` instead of `Cache 29:59`. The prefix is shown by default. The setting is saved on the host and shared by every client connected to it. When a conversation is opened, the pill can show the default label briefly until the setting has loaded.
@@ -56,18 +65,20 @@ npm run check
 npm run preview
 ```
 
-You can view the actual circular progress component at `http://127.0.0.1:4173/preview/`. The preview lets you switch between Codex, the Claude Code main conversation, and a Claude Code subagent, and try scenarios with 50% or one-eighth of the time remaining, an expired timer, or a new message. This preview is for visual inspection and does not connect to Paseo.
+You can view the actual circular progress component at `http://127.0.0.1:4173/preview/`. The preview lets you switch between Codex, the Claude Code main conversation, and a Claude Code subagent, and try scenarios with 50% or one-eighth of the time remaining, an expired timer, or a new message. It also shows the session list of the sidebar screen and the workspace panel with sample sessions. This preview is for visual inspection and does not connect to Paseo.
 
-Automated tests cover durations and color thresholds, remote clocks ahead of or behind the client, clock advances equivalent to sleep, updates on tool completion or failure and the exclusion of tool starts and cancellations, parallel tool completion order and delayed or duplicate events, expansion of the history fetch range, races between history and incoming events, reconnection, history replacement, remounting, per-conversation registration and cleanup, and the `Cache` prefix setting and its default. To verify the behavior in Paseo itself, open a supported conversation after installation and confirm that sending or receiving messages and tool completions or failures reset the timer.
+Automated tests cover durations and color thresholds, remote clocks ahead of or behind the client, clock advances equivalent to sleep, updates on tool completion or failure and the exclusion of tool starts and cancellations, parallel tool completion order and delayed or duplicate events, expansion of the history fetch range, races between history and incoming events, reconnection, history replacement, remounting, per-conversation registration and cleanup, publishing session names to the session lists and grouping them by workspace, and the `Cache` prefix setting and its default. To verify the behavior in Paseo itself, open a supported conversation after installation and confirm that sending or receiving messages and tool completions or failures reset the timer.
 
 Development dependencies match the React and React Native versions used by Paseo 0.10.3. As of 2026-10-04, `npm audit` still reports an issue with `braces` in React Native's development dependency tree. This dependency is not included in the plugin's runtime bundle.
 
 ## Project Structure
 
-- `index.client.tsx`: Plugin client entry point and settings screen registration
+- `index.client.tsx`: Plugin client entry point; registers the settings screen, sidebar screen, and workspace panel
 - `index.server.ts`: Settings persistence on the host
 - `shared/preferences.ts`: Settings document definition
-- `client/register.ts`: Per-conversation pill registration and cleanup
+- `client/register.ts`: Per-conversation pill registration and cleanup, and publication to the session lists
+- `client/sessions.ts`: Registered sessions and workspace grouping for the session lists
+- `client/session-list.tsx`, `client/session-screens.tsx`: Session list rows, the sidebar screen, and the workspace panel
 - `client/message-clock.ts`: Message and tool result history and live updates
 - `client/activity-clock.ts`: Daemon timestamp ordering and client clock correction
 - `client/countdown.ts`: Duration, remaining time, and color calculations
@@ -75,4 +86,4 @@ Development dependencies match the React and React Native versions used by Paseo
 - `client/pill.tsx`, `client/circle-progress.tsx`: React Native pill icon and detail view
 - `client/settings-screen.tsx`: Settings screen
 
-Official documentation: [Plugin quickstart](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/index.md), [Composer pills](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/reference.md#composer-pills), [Settings screens](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/reference.md#settings-screens), [SDK events](https://github.com/getpaseo/paseo/blob/main/public-docs/sdk/events.md).
+Official documentation: [Plugin quickstart](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/index.md), [Composer pills](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/reference.md#composer-pills), [Surfaces and sidebar items](https://github.com/getpaseo/paseo/blob/v0.10.3/public-docs/plugins/reference.md#surfaces-and-sidebar-items), [Workspace panels](https://github.com/getpaseo/paseo/blob/v0.10.3/public-docs/plugins/reference.md#workspace-panels), [Settings screens](https://github.com/getpaseo/paseo/blob/main/public-docs/plugins/reference.md#settings-screens), [SDK events](https://github.com/getpaseo/paseo/blob/main/public-docs/sdk/events.md).

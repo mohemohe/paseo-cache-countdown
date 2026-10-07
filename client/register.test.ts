@@ -1,6 +1,7 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
 import { beforeEach, expect, it, vi } from "vitest";
 import { registerCountdowns } from "./register";
+import { createSessionDirectory } from "./sessions";
 
 const mocks = vi.hoisted(() => ({ createStore: vi.fn(), components: vi.fn() }));
 vi.mock("./countdown-store", () => ({ createCountdownStore: (...args: unknown[]) => mocks.createStore(...args) }));
@@ -23,8 +24,8 @@ function harness() {
   const client = { paseo: { agents: { list, ref: vi.fn(() => ({ timeline: {} })) } }, addComposerPill };
   return {
     client: client as unknown as PluginClientContext, list, subscription, release, unlisten, registrations, addComposerPill,
-    snapshot: (agents: unknown[]) => observer.snapshot({ entries: agents.map((agent) => ({ agent })) }),
-    upsert: (agent: unknown) => observer.update({ type: "agent_update", payload: { kind: "upsert", agent } }),
+    snapshot: (agents: unknown[], project?: unknown) => observer.snapshot({ entries: agents.map((agent) => ({ agent, project })) }),
+    upsert: (agent: unknown, project?: unknown) => observer.update({ type: "agent_update", payload: { kind: "upsert", agent, project } }),
     remove: (agentId: string) => observer.update({ type: "agent_update", payload: { kind: "remove", agentId } }),
   };
 }
@@ -117,4 +118,33 @@ it("re-registers Claude Code agents when they become delegated subagents", async
   expect(mocks.createStore.mock.calls[1][0]).toBe("claude-subagent");
   expect(mocks.components.mock.calls[1][0]).toBe("claude-subagent");
   stop();
+});
+
+it("publishes registered sessions with names and keeps their pills when only names change", async () => {
+  const h = harness();
+  const directory = createSessionDirectory();
+  const listener = vi.fn();
+  directory.subscribe(listener);
+  const stop = registerCountdowns(h.client, directory);
+  await Promise.resolve();
+  const project = { projectName: "app", workspaceName: "feature" };
+  h.snapshot([
+    { ...codex, title: "First", createdAt: "2026-10-01T00:00:00Z" },
+    { ...codex, id: "b", provider: "claude", title: null, createdAt: "2026-10-02T00:00:00Z" },
+    { ...codex, id: "c", provider: "opencode" },
+  ], project);
+  expect(listener).toHaveBeenCalledOnce();
+  expect(directory.getSnapshot()).toEqual([
+    expect.objectContaining({ id: "b", profile: "claude", title: null, projectName: "app", workspaceName: "feature", store: mocks.createStore.mock.results[1].value }),
+    expect.objectContaining({ id: "a", workspaceId: "workspace", profile: "codex", title: "First", store: mocks.createStore.mock.results[0].value }),
+  ]);
+  h.upsert({ ...codex, title: "First", createdAt: "2026-10-01T00:00:00Z", status: "running" });
+  expect(listener).toHaveBeenCalledOnce();
+  h.upsert({ ...codex, title: "Renamed", createdAt: "2026-10-01T00:00:00Z" });
+  expect(h.addComposerPill).toHaveBeenCalledTimes(2);
+  expect(directory.getSnapshot()[1]).toMatchObject({ id: "a", title: "Renamed", projectName: "app", workspaceName: "feature" });
+  h.remove("b");
+  expect(directory.getSnapshot().map(({ id }) => id)).toEqual(["a"]);
+  stop();
+  expect(directory.getSnapshot()).toEqual([]);
 });

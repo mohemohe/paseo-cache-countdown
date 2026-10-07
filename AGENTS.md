@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Paseo Cache Countdown is a Paseo plugin that shows an estimated prompt-cache countdown and circular progress indicator above the composer. It supports Codex (`codex`, 30 minutes) and Claude Code (`claude`, 1 hour for the main conversation, 5 minutes for delegated subagents labeled `paseo.parent-agent-id`). The manifest requires Paseo >= 0.10.3. The countdown runs on the client; the server entry only registers the host-scoped settings document.
+Paseo Cache Countdown is a Paseo plugin that shows an estimated prompt-cache countdown and circular progress indicator above the composer, and lists session countdowns in a sidebar screen and a workspace panel. It supports Codex (`codex`, 30 minutes) and Claude Code (`claude`, 1 hour for the main conversation, 5 minutes for delegated subagents labeled `paseo.parent-agent-id`). The manifest requires Paseo >= 0.10.3. The countdown runs on the client; the server entry only registers the host-scoped settings document.
 
 The project uses strict TypeScript, React, React Native, npm, and Vitest. Paseo supplies React, React Native, and the SDK at runtime; the local packages are development dependencies.
 
@@ -19,10 +19,13 @@ The project uses strict TypeScript, React, React Native, npm, and Vitest. Paseo 
 | Path | Responsibility |
 | --- | --- |
 | `paseo-plugin.json` | Plugin ID and minimum Paseo version |
-| `index.client.tsx` | Client contribution entry point; registers the settings screen and returns the plugin cleanup function |
+| `index.client.tsx` | Client contribution entry point; registers the settings screen, sidebar surface, and workspace panel, and returns the plugin cleanup function |
 | `index.server.ts` | Server entry; registers settings persistence |
 | `shared/preferences.ts` | Host-scoped settings document (`showCachePrefix`, default `true`) |
-| `client/register.ts` | Agent-directory observation and per-agent composer-pill registration |
+| `client/register.ts` | Agent-directory observation, per-agent composer-pill registration, and session publication |
+| `client/sessions.ts` | Session directory shared with the lists and workspace grouping |
+| `client/session-list.tsx` | Plain React Native session rows, also used by the preview |
+| `client/session-screens.tsx` | Sidebar surface and workspace panel wrapping the list in the SDK `ScrollView` |
 | `client/message-clock.ts` | Timeline history, live activity timestamps, retries, and reconnection |
 | `client/countdown.ts` | Provider durations, remaining time, display formatting, color thresholds, and theme colors |
 | `client/countdown-store.ts` | External store; observes activity and ticks while components are subscribed |
@@ -57,7 +60,8 @@ rtk npm run preview
 - Use success colors above half the duration, warning at half or less, and danger at one-eighth or less. Missing history, initial loading, and observation errors display `Cache --:--`; expiration displays `Cache 00:00`.
 - Register pills only for supported, unarchived agents with a workspace. Reconcile snapshots, workspace/provider changes, and removals without duplicate registrations.
 - Await timeline subscription readiness before fetching initial history. Resynchronize on reconnection and replacement, preserve newer live events during history fetches, and retry failures with capped backoff.
-- Keep timeline observers and the one-second timer active only while the icon or popover is subscribed. Release subscriptions, timers, stores, and pill registrations during cleanup.
+- Keep timeline observers and the one-second timer active only while the icon, popover, or a session-list row is subscribed. Session lists share the pill's store instead of observing a timeline again. Release subscriptions, timers, stores, and pill registrations during cleanup.
+- Session lists show the same sessions as the pills on the installation's host, newest first; the sidebar screen groups them by workspace and the panel filters to its workspace. The plugin API cannot decorate Paseo's built-in sidebar session rows.
 - Show `Cache ` before the pill time by default; the `showCachePrefix` setting hides it for every registered pill without re-registering them.
 - The countdown estimates retention from Paseo activity. It does not measure the provider's actual cache state or API submission time.
 
